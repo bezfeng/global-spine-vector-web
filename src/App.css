@@ -1,0 +1,38 @@
+body {
+  background-color: white;
+  color: black;
+}
+
+canvas {
+  border-width: 1px;
+  border-color: darkgray;
+  border-style: solid;
+  margin: 0 auto;
+}
+
+#image-canvas {
+  margin: 0 auto;
+  width: 500px;
+  height: 500px;
+  display: block;
+}
+
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+#editor {
+  width: 80%;
+  margin: 0 auto;
+}
+
+.card {
+  padding: 2em;
+}
+
+#data-form {
+  padding: 8px;
+}
