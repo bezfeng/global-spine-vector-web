@@ -1,8 +1,10 @@
-# React + Vite
+# GlobalSpineVector Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Web app port of [GlobalSpineVector](https://github.com/rocketheat/GlobalSpineVector) by Ghaith Habboub
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1. Clone repo
+2. `npm install`
+3. `npm run dev`
+4. Navigate to the web address provided in `Local` (e.g. `http://localhost:5173/`)
