@@ -1,19 +1,24 @@
+import { useEffect, useRef, useState } from "react";
+
 import { ClassNames } from "@emotion/react";
-import Delete from "@mui/icons-material/Delete";
-import { InputAdornment } from "@mui/material";
-import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogContentText from "@mui/material/DialogContentText";
-import DialogTitle from "@mui/material/DialogTitle";
-import IconButton from "@mui/material/IconButton";
-import TextField from "@mui/material/TextField";
+import { Delete } from "@mui/icons-material";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+  InputAdornment,
+  TextField,
+} from "@mui/material";
 import Grid from "@mui/material/Unstable_Grid2";
 import Spline from "cubic-spline";
-import { useRef, useState, useEffect } from "react";
+
 import "./App.css";
 import { linspace } from "./SpineHelper";
+import { Pyodide } from "./pyodide";
 
 function App() {
   // The displayed image.
