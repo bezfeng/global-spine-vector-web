@@ -4,6 +4,7 @@ import { ClassNames } from "@emotion/react";
 import { Delete } from "@mui/icons-material";
 import {
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -185,6 +186,47 @@ function App() {
     setDialogOpen(false);
   };
 
+  function VectorButtons() {
+    if (pyodide) {
+      return (
+        <>
+          <Grid xs={4}>
+            <Button
+              variant="outlined"
+              component="span"
+              className={ClassNames.Button}
+              onClick={() => {
+                setShouldDrawSpline(!shouldDrawSpline);
+              }}
+            >
+              {shouldDrawSpline ? "Hide spline" : "Draw spline"}
+            </Button>
+          </Grid>
+          <Grid xs={4}>
+            <Button
+              variant="outlined"
+              component="span"
+              className={ClassNames.Button}
+            >
+              Spine vector
+            </Button>
+          </Grid>
+          <Grid xs={4}>
+            <Button
+              variant="outlined"
+              component="span"
+              className={ClassNames.Button}
+            >
+              Show table
+            </Button>
+          </Grid>
+        </>
+      );
+    } else {
+      return null;
+    }
+  }
+
   // Canvas hook that waits until the element is initialized before we try drawing.
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -197,7 +239,12 @@ function App() {
     <>
       <div>
         <h2>Global Spine Vector Web</h2>
-        <h3>{pyodide ? "Pyodide is ready" : "Pyodide is loading"}</h3>
+        <h3>
+          {!pyodide && "Pyodide is loading"}
+          {!pyodide && (
+            <CircularProgress disableShrink size={24} sx={{ marginLeft: 4 }} />
+          )}
+        </h3>
       </div>
       <div id="image-canvas">
         <canvas ref={canvasRef} onClick={handleCanvasClick} />
@@ -251,41 +298,13 @@ function App() {
               onClick={() => {
                 setCoordinates([]);
                 setLabels([]);
+                setShouldDrawSpline(false);
               }}
             >
               Clear points
             </Button>
           </Grid>
-          <Grid xs={4}>
-            <Button
-              variant="outlined"
-              component="span"
-              className={ClassNames.Button}
-              onClick={() => {
-                setShouldDrawSpline(!shouldDrawSpline);
-              }}
-            >
-              Draw spline
-            </Button>
-          </Grid>
-          <Grid xs={4}>
-            <Button
-              variant="outlined"
-              component="span"
-              className={ClassNames.Button}
-            >
-              Spine vector
-            </Button>
-          </Grid>
-          <Grid xs={4}>
-            <Button
-              variant="outlined"
-              component="span"
-              className={ClassNames.Button}
-            >
-              Show table
-            </Button>
-          </Grid>
+          <VectorButtons />
           <Grid xs={12}>Enter patient's weight in kg:</Grid>
           <Grid xs={12}>
             <TextField
