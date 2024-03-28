@@ -18,9 +18,28 @@ import Spline from "cubic-spline";
 
 import "./App.css";
 import { linspace } from "./SpineHelper";
-import { Pyodide } from "./pyodide";
+import { loadPyodide } from "pyodide";
 
 function App() {
+  // State to track pyodide construction so that we don't use it before it's ready.
+  const [pyodide, setPyodide] = useState(null);
+
+  useEffect(() => {
+    async function makePyodide() {
+      let newPyodide = await loadPyodide({
+        indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/",
+      });
+      await newPyodide.loadPackage(["numpy", "scipy"]);
+      await newPyodide.runPythonAsync(`
+        import numpy as np
+        import scipy
+        from scipy.interpolate import CubicSpline
+      `);
+      setPyodide(newPyodide);
+    }
+    makePyodide();
+  }, []);
+
   // The displayed image.
   const [selectedImage, setSelectedImage] = useState(null);
 
@@ -111,14 +130,21 @@ function App() {
       return a.y < b.y ? -1 : 1;
     });
 
-    let xVals = tempCoords.map((c) => c.x);
-    let yVals = tempCoords.map((c) => c.y);
+    globalThis.xVals = tempCoords.map((c) => c.x);
+    globalThis.yVals = tempCoords.map((c) => c.y);
+    pyodide.runPython(`
+      from js import xVals, yVals
 
-    // TODO: is this Spline class equivalent to the one from scipy?
-    // Consider calling into scipy with pyodide.
-    const spline = new Spline(yVals, xVals);
-    let yNew = linspace(yVals[0], yVals[yVals.length - 1], 1000);
-    let xNew = yNew.map((y) => spline.at(y));
+      y = np.asarray(yVals.to_py())
+      x = np.asarray(xVals.to_py())
+      cs = CubicSpline(y, x, bc_type='natural')
+
+      ynew = np.linspace(np.min(y), np.max(y), 1000)
+      xnew = cs(ynew)
+    `);
+    let yNew = pyodide.globals.get("ynew").toJs({ create_proxies: false });
+    let xNew = pyodide.globals.get("xnew").toJs({ create_proxies: false });
+    //let xNew = yNew.map((y) => spline.at(y));
 
     ctx.beginPath();
     ctx.moveTo(xNew[0], yNew[0]);
@@ -171,6 +197,7 @@ function App() {
     <>
       <div>
         <h2>Global Spine Vector Web</h2>
+        <h3>{pyodide ? "Pyodide is ready" : "Pyodide is loading"}</h3>
       </div>
       <div id="image-canvas">
         <canvas ref={canvasRef} onClick={handleCanvasClick} />
