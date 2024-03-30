@@ -15,7 +15,6 @@ import {
   TextField,
 } from "@mui/material";
 import Grid from "@mui/material/Unstable_Grid2";
-import Spline from "cubic-spline";
 
 import "./App.css";
 import { linspace } from "./SpineHelper";
@@ -31,10 +30,20 @@ function App() {
         indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/",
       });
       await newPyodide.loadPackage(["numpy", "scipy"]);
+
+      // Set up our imports and helper functions.
       await newPyodide.runPythonAsync(`
         import numpy as np
         import scipy
         from scipy.interpolate import CubicSpline
+
+        def calculate_angles(spline, x_values):
+          dx = spline.derivative(1)(x_values)  # First derivative
+          dy = np.ones_like(dx)
+          tangent_vectors = np.stack((dx, dy), axis=-1)
+          normalized_tangent_vectors = tangent_vectors / np.linalg.norm(tangent_vectors, axis=-1, keepdims=True)
+          angles = np.arctan2(normalized_tangent_vectors[:, 0], normalized_tangent_vectors[:, 1])
+          return np.degrees(angles)
       `);
       setPyodide(newPyodide);
     }
@@ -142,10 +151,15 @@ function App() {
 
       ynew = np.linspace(np.min(y), np.max(y), 1000)
       xnew = cs(ynew)
+      
+      angles = calculate_angles(cs, y)
     `);
+
+    // Don't proxy the objects because we want to convert them directly to JS and discard
+    // the backing Python object.
     let yNew = pyodide.globals.get("ynew").toJs({ create_proxies: false });
     let xNew = pyodide.globals.get("xnew").toJs({ create_proxies: false });
-    //let xNew = yNew.map((y) => spline.at(y));
+    let angles = pyodide.globals.get("angles").toJs({ create_proxies: false });
 
     ctx.beginPath();
     ctx.moveTo(xNew[0], yNew[0]);
@@ -153,6 +167,18 @@ function App() {
       ctx.lineTo(xNew[i], yNew[i]);
     }
     ctx.stroke();
+
+    for (let i = 0; i < tempCoords.length; i++) {
+      let coordinate = tempCoords[i];
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "black";
+      // Assume that the number of calculated angles is equal to the number of added points.
+      ctx.fillText(
+        `${Number.parseFloat(angles[i]).toFixed(2)}°`,
+        coordinate.x + 24,
+        coordinate.y
+      );
+    }
   };
 
   const handleCanvasClick = (event) => {
