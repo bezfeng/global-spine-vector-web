@@ -26,6 +26,34 @@ export const levelProportion = {
   S1: 2.6,
 };
 
+export const validLevels = new Set([
+  "C1",
+  "C2",
+  "C3",
+  "C4",
+  "C5",
+  "C6",
+  "C7",
+  "T1",
+  "T2",
+  "T3",
+  "T4",
+  "T5",
+  "T6",
+  "T7",
+  "T8",
+  "T9",
+  "T10",
+  "T11",
+  "T12",
+  "L1",
+  "L2",
+  "L3",
+  "L4",
+  "L5",
+  "S1",
+]);
+
 export const calcCumLevel = () => {
   let cumulativeLevelProportion = {};
   let cumulativeSingleLevelProportion = {};
@@ -63,11 +91,13 @@ export const calcCumLevel = () => {
     sumCervicalRegionalContribution += levelProportion[l];
   });
 
-  cervicalList.foreach((l) => {
+  console.log(sumCervicalRegionalContribution);
+
+  cervicalList.forEach((l) => {
     cumulativeLevelProportion[l] =
-      levelProportion[i] / sumCervicalRegionalContribution;
+      levelProportion[l] / sumCervicalRegionalContribution;
     cumulativeSingleLevelProportion[l] =
-      levelProportion[i] / sumCervicalRegionalContribution;
+      levelProportion[l] / sumCervicalRegionalContribution;
   });
 
   let priorCContrib = totalHeadContribution;
@@ -81,7 +111,7 @@ export const calcCumLevel = () => {
 
   let sumThoracicLumbarRegionalContribution = 0;
   thoracicLumbarList.forEach((l) => {
-    sumThoracicLumbarRegionalContribution += levelProportion[i];
+    sumThoracicLumbarRegionalContribution += levelProportion[l];
   });
   thoracicLumbarList.forEach((l) => {
     cumulativeLevelProportion[l] =
@@ -99,6 +129,13 @@ export const calcCumLevel = () => {
       cumulativeSingleLevelProportion[l];
     priorTLContrib = cumulativeLevelProportion[l];
   });
+
+  return {
+    cumulativeLevelProportion: cumulativeLevelProportion,
+    cumulativeSingleLevelProportion: cumulativeLevelProportion,
+    cervicalList: cervicalList,
+    thoracicLumbarList: thoracicLumbarList,
+  };
 };
 
 export function linspace(start, stop, num, endpoint = true) {

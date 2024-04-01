@@ -17,12 +17,38 @@ import {
 import Grid from "@mui/material/Unstable_Grid2";
 
 import "./App.css";
-import { linspace } from "./SpineHelper";
+import { calcCumLevel, validLevels } from "./SpineHelper";
 import { loadPyodide } from "pyodide";
+
+var MODE_SPLINE = "spline";
+var MODE_SPINE_VEC = "spine_vec";
 
 function App() {
   // State to track pyodide construction so that we don't use it before it's ready.
   const [pyodide, setPyodide] = useState(null);
+
+  // The displayed image.
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  // List of points added by the user.
+  const [coordinates, setCoordinates] = useState([]);
+
+  // Newly added point that has not been confirmed by user.
+  const [newCoord, setNewCoord] = useState(null);
+
+  // State for the dialog box that prompts users to label their new point.
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const dialogTextRef = useRef(null);
+
+  // State for the weight input text field.
+  const weightTextRef = useRef(null);
+
+  const [shouldDrawSpline, setShouldDrawSpline] = useState(false);
+  const [shouldDrawSpineVec, setShouldDrawSpineVec] = useState(false);
+
+  const canvasRef = useRef(null);
+
+  // Python Init --------------------------------------------------------------
 
   useEffect(() => {
     async function makePyodide() {
@@ -44,32 +70,24 @@ function App() {
           normalized_tangent_vectors = tangent_vectors / np.linalg.norm(tangent_vectors, axis=-1, keepdims=True)
           angles = np.arctan2(normalized_tangent_vectors[:, 0], normalized_tangent_vectors[:, 1])
           return np.degrees(angles)
+        
+        def calculate_vector(weight, level, angle):
+          print('Calculating vector for {}, {}, {}'.format(weight, level, angle))
+          return np.abs(scipy.constants.g * weight * np.sin(np.radians(angle)) * level/58)
+        def calculate_vector_normal(weight, level, angle):
+          return np.abs(scipy.constants.g * weight * np.cos(np.radians(angle)) * level/58)
+
+        def calculate_vector_S_non_abs(weight, level, angle):
+          return scipy.constants.g * weight * np.sin(np.radians(angle)) * level/58
+        def calculate_vector_O_non_abs(weight, level, angle):
+          return scipy.constants.g * weight * np.cos(np.radians(angle)) * level/58
       `);
       setPyodide(newPyodide);
     }
     makePyodide();
   }, []);
 
-  // The displayed image.
-  const [selectedImage, setSelectedImage] = useState(null);
-
-  // List of points added by the user.
-  const [coordinates, setCoordinates] = useState([]);
-
-  // Newly added point that has not been confirmed by user.
-  const [newCoord, setNewCoord] = useState(null);
-
-  // List of labels for the points in 'coordinates'.
-  // Each label corresponds to the point at the same index.
-  const [labels, setLabels] = useState([]);
-
-  // State for the dialog box that prompts users to label their new point.
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const dialogTextRef = useRef(null);
-
-  const [shouldDrawSpline, setShouldDrawSpline] = useState(false);
-
-  const canvasRef = useRef(null);
+  // Drawing Methods ----------------------------------------------------------
 
   // Function called by the canvas when it's ready to draw.
   // This handles drawing the image.
@@ -94,15 +112,15 @@ function App() {
         ctx.drawImage(image, 0, 0, imgWidth, imgHeight);
 
         // Make sure to draw the circles on top of the image.
-        drawCircles(ctx);
+        drawCirclesAndSpine(ctx);
       };
     } else {
-      drawCircles(ctx);
+      drawCirclesAndSpine(ctx);
     }
   };
 
   // Function to draw all the added points.
-  const drawCircles = (ctx) => {
+  const drawCirclesAndSpine = (ctx) => {
     coordinates.forEach((coordinate, index) => {
       // Draw a red circle with a black outline.
       ctx.beginPath();
@@ -113,22 +131,20 @@ function App() {
       ctx.strokeStyle = "#000000";
       ctx.stroke();
 
-      // Add the label if present.
-      if (labels.length > 0) {
-        ctx.font = "16px Arial";
-        ctx.fillStyle = "black";
-        ctx.fillText(labels[index], coordinate.x - 6, coordinate.y - 16);
-      }
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "black";
+      ctx.fillText(coordinate.label, coordinate.x - 6, coordinate.y - 16);
     });
 
+    // Do not draw both the spline and spine vector.
     if (shouldDrawSpline) {
-      drawSpline(ctx);
+      drawSpineCommon(ctx, MODE_SPLINE);
+    } else if (shouldDrawSpineVec) {
+      drawSpineCommon(ctx, MODE_SPINE_VEC);
     }
   };
 
-  // Draws a spline between all points.
-  const drawSpline = (ctx) => {
-    console.log("Drawing spline!");
+  const drawSpineCommon = (ctx, mode) => {
     if (coordinates.length < 2) {
       console.log("Not enough points, bailing");
       // TODO: Show an alert here.
@@ -142,6 +158,23 @@ function App() {
 
     globalThis.xVals = tempCoords.map((c) => c.x);
     globalThis.yVals = tempCoords.map((c) => c.y);
+
+    switch (mode) {
+      case MODE_SPLINE:
+        drawSpline(ctx, tempCoords);
+        break;
+      case MODE_SPINE_VEC:
+        drawSpineVector(ctx, tempCoords);
+        break;
+      default:
+        console.log("Unhandled spine drawing mode");
+    }
+  };
+
+  // Draws a spline between all points.
+  const drawSpline = (ctx, sortedCoords) => {
+    console.log("Drawing spline!");
+
     pyodide.runPython(`
       from js import xVals, yVals
 
@@ -168,8 +201,8 @@ function App() {
     }
     ctx.stroke();
 
-    for (let i = 0; i < tempCoords.length; i++) {
-      let coordinate = tempCoords[i];
+    for (let i = 0; i < sortedCoords.length; i++) {
+      let coordinate = sortedCoords[i];
       ctx.font = "16px Arial";
       ctx.fillStyle = "black";
       // Assume that the number of calculated angles is equal to the number of added points.
@@ -181,6 +214,65 @@ function App() {
     }
   };
 
+  const drawSpineVector = (ctx, sortedCoords) => {
+    console.log("Drawing spine vector!");
+
+    // Default to a weight of 60 kg.
+    let weight = 60.0;
+    if (weightTextRef.current) {
+      weight = Number.parseFloat(weightTextRef.current.value);
+    }
+
+    console.log("Performing calculations with weight of " + weight);
+
+    let levelParams = calcCumLevel();
+
+    globalThis.w = weight;
+    globalThis.level = sortedCoords.map((c) => c.label);
+    globalThis.cumulativeLevelProportion =
+      levelParams.cumulativeLevelProportion;
+    globalThis.cumulativeSingleLevelProportion =
+      levelParams.cumulativeSingleLevelProportion;
+
+    // Make sure the labels are spinal levels. If not, we cannot perform
+    // the appropriate calculations so just alert the user and bail.
+    for (let i = 0; i < sortedCoords.length; i++) {
+      if (!validLevels.has(sortedCoords[i].label)) {
+        console.log("Invalid label: " + sortedCoords[i].label);
+        return;
+      }
+    }
+
+    pyodide.runPython(`
+      import js
+
+      w = js.w
+      cumulative_level_proportion = js.cumulativeLevelProportion.to_py()
+      cumulative_single_level_proportion = js.cumulativeSingleLevelProportion.to_py()
+      level = js.level.to_py()
+    
+      y = np.asarray(js.yVals.to_py())
+      x = np.asarray(js.xVals.to_py())
+      cs = CubicSpline(y, x, bc_type='natural')   
+
+      angles = calculate_angles(cs, y)
+      
+      vec_mag = [calculate_vector(w, cumulative_single_level_proportion[l], a) for a, l in zip(angles, level)]
+      vec_mag_normal = [calculate_vector_normal(w, cumulative_single_level_proportion[l], a) for a, l in
+                 zip(angles, level)]
+
+      print(level)
+    `);
+  };
+
+  const resetPoints = () => {
+    setCoordinates([]);
+    setShouldDrawSpline(false);
+    setShouldDrawSpineVec(false);
+  };
+
+  // Point Methods ------------------------------------------------------------
+
   const handleCanvasClick = (event) => {
     // We will offset the stored mouse click coordinates by the
     // top left of the canvas to determine the "absolute" screen
@@ -189,7 +281,11 @@ function App() {
     // the point at the wrong position.
     const rect = canvasRef.current.getBoundingClientRect();
     let offset = { x: rect.left, y: rect.top };
-    let coord = { x: event.clientX - offset.x, y: event.clientY - offset.y };
+    let coord = {
+      x: event.clientX - offset.x,
+      y: event.clientY - offset.y,
+      label: "",
+    };
     console.log("Got click at: " + coord.x + ", " + coord.y);
 
     setNewCoord(coord);
@@ -205,12 +301,14 @@ function App() {
     if (!newLabel) {
       newLabel = "";
     }
+    newCoord.label = newLabel;
     // Commit the new coordinate to memory and clear the buffer.
     setCoordinates([...coordinates, newCoord]);
     setNewCoord(null);
-    setLabels([...labels, newLabel]);
     setDialogOpen(false);
   };
+
+  // UI ------------------------------------------------------------
 
   function VectorButtons() {
     if (pyodide) {
@@ -233,8 +331,12 @@ function App() {
               variant="outlined"
               component="span"
               className={ClassNames.Button}
+              onClick={() => {
+                setShouldDrawSpline(false);
+                setShouldDrawSpineVec(!shouldDrawSpineVec);
+              }}
             >
-              Spine vector
+              {shouldDrawSpineVec ? "Hide spine vector" : "Spine vector"}
             </Button>
           </Grid>
           <Grid xs={4}>
@@ -321,11 +423,7 @@ function App() {
             <Button
               component="span"
               className={ClassNames.Button}
-              onClick={() => {
-                setCoordinates([]);
-                setLabels([]);
-                setShouldDrawSpline(false);
-              }}
+              onClick={resetPoints}
             >
               Clear points
             </Button>
@@ -336,7 +434,9 @@ function App() {
             <TextField
               label="Weight"
               variant="filled"
+              defaultValue="60"
               id="pt-weight"
+              inputRef={weightTextRef}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">kg</InputAdornment>
