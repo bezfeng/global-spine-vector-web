@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ClassNames } from "@emotion/react";
 import { Delete } from "@mui/icons-material";
 import {
+  Box,
   Button,
   Card,
   CardContent,
@@ -14,6 +15,7 @@ import {
   DialogTitle,
   IconButton,
   InputAdornment,
+  Paper,
   TextField,
 } from "@mui/material";
 import Grid from "@mui/material/Unstable_Grid2";
@@ -419,7 +421,11 @@ function App() {
     console.log("Drawing spine vector!");
 
     if (spineVector == null) {
-      alert("Insufficient points to perform spine vector calculations");
+      alert(
+        "Insufficient points to perform spine vector calculations. Please make sure you have " +
+          "at least two points for the cervical, thoracic, and lumbar regions."
+      );
+      setShouldDrawSpineVec(false);
       return;
     }
 
@@ -528,32 +534,86 @@ function App() {
     if (shouldDrawSpineVec && spineVector) {
       return (
         <>
-          <Grid xs={12}>
-            <Card variant="outlined">
-              <CardContent>
-                Vector angle:{" "}
-                {(180 - Number.parseFloat(spineVector.angleDegrees)).toFixed(2)}
-                °
-                <br />
-                Vector magnitude:{" "}
-                {Number.parseFloat(spineVector.sumMag).toFixed(2)} Newton
-              </CardContent>
-            </Card>
-          </Grid>
+          <Card variant="outlined">
+            <CardContent>
+              Vector angle:{" "}
+              {(180 - Number.parseFloat(spineVector.angleDegrees)).toFixed(2)}
+              °
+              <br />
+              Vector magnitude:{" "}
+              {Number.parseFloat(spineVector.sumMag).toFixed(2)} Newton
+            </CardContent>
+          </Card>
         </>
       );
     }
+  }
+
+  function CanvasButtons() {
+    return (
+      <>
+        <Paper display="flex" elevation={3} sx={{ p: 2 }}>
+          <input
+            type="file"
+            name="selected_image"
+            accept="image/*"
+            id="button-file"
+            hidden
+            onChange={(event) => {
+              if (event.target.files.length > 0) {
+                setSelectedImage(event.target.files[0]);
+              }
+            }}
+          />
+          <label htmlFor="button-file">
+            <Button
+              variant="contained"
+              component="span"
+              className={ClassNames.Button}
+            >
+              Select image
+            </Button>
+            <IconButton
+              aria-label="delete"
+              sx={{ marginRight: 2 }}
+              onClick={() => {
+                setSelectedImage(null);
+              }}
+            >
+              <Delete />
+            </IconButton>
+          </label>
+          <Button
+            variant="outlined"
+            component="span"
+            className={ClassNames.Button}
+            sx={{ marginX: 2 }}
+          >
+            Delete point
+          </Button>
+          <Button
+            component="span"
+            className={ClassNames.Button}
+            sx={{ marginX: 2 }}
+            onClick={resetPoints}
+          >
+            Clear points
+          </Button>
+        </Paper>
+      </>
+    );
   }
 
   function VectorButtons() {
     if (pyodide) {
       return (
         <>
-          <Grid xs={4}>
+          <Paper display="flex" elevation={3} sx={{ p: 2 }}>
             <Button
               variant="outlined"
               component="span"
               className={ClassNames.Button}
+              sx={{ marginX: 2 }}
               onClick={() => {
                 setShouldDrawSpineVec(false);
                 setShouldDrawSpline(!shouldDrawSpline);
@@ -561,12 +621,11 @@ function App() {
             >
               {shouldDrawSpline ? "Hide spline" : "Draw spline"}
             </Button>
-          </Grid>
-          <Grid xs={4}>
             <Button
               variant="outlined"
               component="span"
               className={ClassNames.Button}
+              sx={{ marginX: 2 }}
               onClick={() => {
                 setShouldDrawSpline(false);
                 setShouldDrawSpineVec(!shouldDrawSpineVec);
@@ -574,16 +633,15 @@ function App() {
             >
               {shouldDrawSpineVec ? "Hide spine vector" : "Spine vector"}
             </Button>
-          </Grid>
-          <Grid xs={4}>
             <Button
               variant="outlined"
               component="span"
               className={ClassNames.Button}
+              sx={{ marginX: 2 }}
             >
               Show table
             </Button>
-          </Grid>
+          </Paper>
         </>
       );
     } else {
@@ -614,60 +672,20 @@ function App() {
         <canvas ref={canvasRef} onClick={handleCanvasClick} />
       </div>
       <div id="editor">
-        <Grid container spacing={2} id="data-form">
-          <VectorText />
-          <Grid xs={4}>
-            <input
-              type="file"
-              name="selected_image"
-              accept="image/*"
-              id="button-file"
-              hidden
-              onChange={(event) => {
-                if (event.target.files.length > 0) {
-                  setSelectedImage(event.target.files[0]);
-                }
-              }}
-            />
-            <label htmlFor="button-file">
-              <Button
-                variant="contained"
-                component="span"
-                className={ClassNames.Button}
-              >
-                Select image
-              </Button>
-              <IconButton
-                aria-label="delete"
-                onClick={() => {
-                  setSelectedImage(null);
-                }}
-              >
-                <Delete />
-              </IconButton>
-            </label>
-          </Grid>
-          <Grid xs={4}>
-            <Button
-              variant="outlined"
-              component="span"
-              className={ClassNames.Button}
-            >
-              Delete point
-            </Button>
-          </Grid>
-          <Grid xs={4}>
-            <Button
-              component="span"
-              className={ClassNames.Button}
-              onClick={resetPoints}
-            >
-              Clear points
-            </Button>
-          </Grid>
-          <VectorButtons />
-          <Grid xs={12}>Enter patient's weight in kg:</Grid>
+        <Grid container rowSpacing={2} id="data-form">
           <Grid xs={12}>
+            <VectorText />
+          </Grid>
+          <Grid xs={12}>
+            <CanvasButtons />
+          </Grid>
+          <Grid xs={12}>
+            <VectorButtons />
+          </Grid>
+          <Grid xs={12}>
+            Enter patient's weight in kg:
+            <br />
+            <br />
             <TextField
               label="Weight"
               variant="filled"
