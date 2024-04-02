@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   CardContent,
+  CardHeader,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -16,6 +17,12 @@ import {
   IconButton,
   InputAdornment,
   Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
 } from "@mui/material";
 import Grid from "@mui/material/Unstable_Grid2";
@@ -55,6 +62,7 @@ function App() {
 
   const [shouldDrawSpline, setShouldDrawSpline] = useState(false);
   const [shouldDrawSpineVec, setShouldDrawSpineVec] = useState(false);
+  const [shouldShowTable, setShouldShowTable] = useState(false);
 
   const canvasRef = useRef(null);
 
@@ -283,6 +291,7 @@ function App() {
     let sumMag = pyodide.globals.get("sum_mag");
 
     return {
+      storedData: storedData,
       angleDegrees: angleDegrees,
       sumMag: sumMag,
       resultantVector: resultantVector,
@@ -536,6 +545,8 @@ function App() {
         <>
           <Card variant="outlined">
             <CardContent>
+              <b>Resultant Vector</b>
+              <br />
               Vector angle:{" "}
               {(180 - Number.parseFloat(spineVector.angleDegrees)).toFixed(2)}
               °
@@ -570,12 +581,13 @@ function App() {
               variant="contained"
               component="span"
               className={ClassNames.Button}
+              sx={{ marginBottom: 1 }}
             >
               Select image
             </Button>
             <IconButton
               aria-label="delete"
-              sx={{ marginRight: 2 }}
+              sx={{ marginRight: 2, marginBottom: 1 }}
               onClick={() => {
                 setSelectedImage(null);
               }}
@@ -587,14 +599,14 @@ function App() {
             variant="outlined"
             component="span"
             className={ClassNames.Button}
-            sx={{ marginX: 2 }}
+            sx={{ marginX: 2, marginBottom: 1 }}
           >
             Delete point
           </Button>
           <Button
             component="span"
             className={ClassNames.Button}
-            sx={{ marginX: 2 }}
+            sx={{ marginX: 2, marginBottom: 1 }}
             onClick={resetPoints}
           >
             Clear points
@@ -613,7 +625,7 @@ function App() {
               variant="outlined"
               component="span"
               className={ClassNames.Button}
-              sx={{ marginX: 2 }}
+              sx={{ marginX: 2, marginBottom: 1 }}
               onClick={() => {
                 setShouldDrawSpineVec(false);
                 setShouldDrawSpline(!shouldDrawSpline);
@@ -625,7 +637,7 @@ function App() {
               variant="outlined"
               component="span"
               className={ClassNames.Button}
-              sx={{ marginX: 2 }}
+              sx={{ marginX: 2, marginBottom: 1 }}
               onClick={() => {
                 setShouldDrawSpline(false);
                 setShouldDrawSpineVec(!shouldDrawSpineVec);
@@ -637,15 +649,64 @@ function App() {
               variant="outlined"
               component="span"
               className={ClassNames.Button}
-              sx={{ marginX: 2 }}
+              sx={{ marginX: 2, marginBottom: 1 }}
+              onClick={() => {
+                setShouldShowTable(!shouldShowTable);
+              }}
             >
-              Show table
+              {shouldShowTable ? "Hide table" : "Show table"}
             </Button>
           </Paper>
         </>
       );
     } else {
       return null;
+    }
+  }
+
+  function VectorTable() {
+    if (spineVector && shouldShowTable) {
+      spineVector.storedData.map((row) => {
+        console.log(row);
+      });
+      return (
+        <>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>vecAng</TableCell>
+                  <TableCell>vecMagShear</TableCell>
+                  <TableCell>vecMagOrth</TableCell>
+                  <TableCell>vecRatio</TableCell>
+                  <TableCell>Level</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {spineVector.storedData.map((row) => (
+                  <TableRow key={row.level}>
+                    <TableCell component="td" scope="row">
+                      {row[0]}
+                    </TableCell>
+                    <TableCell component="td" scope="row">
+                      {row[1]}
+                    </TableCell>
+                    <TableCell component="td" scope="row">
+                      {row[2]}
+                    </TableCell>
+                    <TableCell component="td" scope="row">
+                      {row[3]}
+                    </TableCell>
+                    <TableCell component="td" scope="row">
+                      {row[4]}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      );
     }
   }
 
@@ -672,14 +733,13 @@ function App() {
         <canvas ref={canvasRef} onClick={handleCanvasClick} />
       </div>
       <div id="editor">
-        <Grid container rowSpacing={2} id="data-form">
-          <Grid xs={12}>
-            <VectorText />
-          </Grid>
-          <Grid xs={12}>
+        <VectorText />
+        <VectorTable />
+        <Grid container spacing={2} id="data-form">
+          <Grid sm={12} md={6}>
             <CanvasButtons />
           </Grid>
-          <Grid xs={12}>
+          <Grid sm={12} md={6}>
             <VectorButtons />
           </Grid>
           <Grid xs={12}>
