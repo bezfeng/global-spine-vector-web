@@ -26,14 +26,8 @@ export const levelProportion = {
   S1: 2.6,
 };
 
-export const validLevels = new Set([
-  "C1",
-  "C2",
-  "C3",
-  "C4",
-  "C5",
-  "C6",
-  "C7",
+export const cervicalLevels = ["C1", "C2", "C3", "C4", "C5", "C6", "C7"];
+export const thoracicLevels = [
   "T1",
   "T2",
   "T3",
@@ -46,13 +40,12 @@ export const validLevels = new Set([
   "T10",
   "T11",
   "T12",
-  "L1",
-  "L2",
-  "L3",
-  "L4",
-  "L5",
-  "S1",
-]);
+];
+export const lumbarLevels = ["L1", "L2", "L3", "L4", "L5", "S1"];
+
+export const validLevels = new Set(
+  [cervicalLevels, thoracicLevels, lumbarLevels].flat()
+);
 
 export const calcCumLevel = () => {
   let cumulativeLevelProportion = {};
@@ -64,27 +57,8 @@ export const calcCumLevel = () => {
   let totalTrunkUpperExtremitiesContributions =
     totalWeightOnLumbar - totalHeadContribution - totalCervicalContribution;
 
-  let cervicalList = ["C1", "C2", "C3", "C4", "C5", "C6", "C7"];
-  let thoracicLumbarList = [
-    "T1",
-    "T2",
-    "T3",
-    "T4",
-    "T5",
-    "T6",
-    "T7",
-    "T8",
-    "T9",
-    "T10",
-    "T11",
-    "T12",
-    "L1",
-    "L2",
-    "L3",
-    "L4",
-    "L5",
-    "S1",
-  ];
+  let cervicalList = cervicalLevels;
+  let thoracicLumbarList = [thoracicLevels, lumbarLevels].flat();
 
   let sumCervicalRegionalContribution = 0;
   cervicalList.forEach((l) => {

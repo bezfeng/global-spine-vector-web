@@ -12,8 +12,8 @@ canvas {
 
 #image-canvas {
   margin: 0 auto;
-  width: 500px;
-  height: 500px;
+  width: 600px;
+  height: 600px;
   display: block;
 }
 
@@ -27,6 +27,7 @@ canvas {
 #editor {
   width: 80%;
   margin: 0 auto;
+  margin-top: 16px;
 }
 
 .card {
