@@ -386,7 +386,12 @@ function App() {
     });
     const csv = generateCsv(config)(dataDict);
     download(config)(csv);
-    saveCoords();
+
+    // Save the coordinates after a 50 ms delay because Safari iOS does not allow
+    // back to back downloads.
+    setTimeout(() => {
+      saveCoords();
+    }, 50);
   };
 
   const saveCoords = () => {
