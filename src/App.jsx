@@ -333,8 +333,9 @@ function App() {
 
     if (isDeleteMode) {
       // Check if the coordinate is near any of our stored points.
-      for (let i = 0; i < coordinates.length; i++) {
-        let storedCoord = coordinates[i];
+      let tempCoords = [...coordinates];
+      for (let i = 0; i < tempCoords.length; i++) {
+        let storedCoord = tempCoords[i];
         // Accept any click within 32 pixels (16 * 2) of the center of the point.
         // If there are multiple points that fulfill this criteria, the oldest
         // added point will be removed.
@@ -343,11 +344,12 @@ function App() {
           Math.abs(coord.y - storedCoord.y) <= 16
         ) {
           console.log("Deleting " + JSON.stringify(storedCoord));
-          coordinates.splice(i, 1);
+          tempCoords.splice(i, 1);
           break;
         }
       }
       // End delete mode after a click.
+      setCoordinates(tempCoords);
       toggleDeleteMode();
     } else {
       setNewCoord(coord);
