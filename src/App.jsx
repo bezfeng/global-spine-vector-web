@@ -57,6 +57,10 @@ function App() {
   // State for the weight input text field.
   const [weightText, setWeightText] = useState(DEFAULT_WEIGHT_STRING);
 
+  // State for delete mode.
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [cursorStyle, setCursorStyle] = useState("default");
+
   const [shouldDrawSpline, setShouldDrawSpline] = useState(false);
   const [shouldDrawSpineVec, setShouldDrawSpineVec] = useState(false);
   const [shouldShowTable, setShouldShowTable] = useState(false);
@@ -327,8 +331,28 @@ function App() {
     };
     console.log("Got click at: " + coord.x + ", " + coord.y);
 
-    setNewCoord(coord);
-    setDialogOpen(true);
+    if (isDeleteMode) {
+      // Check if the coordinate is near any of our stored points.
+      for (let i = 0; i < coordinates.length; i++) {
+        let storedCoord = coordinates[i];
+        // Accept any click within 32 pixels (16 * 2) of the center of the point.
+        // If there are multiple points that fulfill this criteria, the oldest
+        // added point will be removed.
+        if (
+          Math.abs(coord.x - storedCoord.x) <= 16 &&
+          Math.abs(coord.y - storedCoord.y) <= 16
+        ) {
+          console.log("Deleting " + JSON.stringify(storedCoord));
+          coordinates.splice(i, 1);
+          break;
+        }
+      }
+      // End delete mode after a click.
+      toggleDeleteMode();
+    } else {
+      setNewCoord(coord);
+      setDialogOpen(true);
+    }
   };
 
   const handleClose = () => {
@@ -345,6 +369,17 @@ function App() {
     setCoordinates([...coordinates, newCoord]);
     setNewCoord(null);
     setDialogOpen(false);
+  };
+
+  const toggleDeleteMode = () => {
+    // Use local state here because setState in React is a deferred action.
+    let shouldDelete = !isDeleteMode;
+    if (shouldDelete) {
+      setCursorStyle("crosshair");
+    } else {
+      setCursorStyle("default");
+    }
+    setIsDeleteMode(shouldDelete);
   };
 
   // UI ------------------------------------------------------------
@@ -410,6 +445,8 @@ function App() {
             component="span"
             className={ClassNames.Button}
             sx={{ marginX: 2, marginBottom: 1 }}
+            color={isDeleteMode ? "error" : "primary"}
+            onClick={toggleDeleteMode}
           >
             Delete point
           </Button>
@@ -468,6 +505,18 @@ function App() {
             }}
           >
             {shouldShowTable ? "Hide table" : "Show table"}
+          </Button>
+          <Button
+            variant="outlined"
+            component="span"
+            className={ClassNames.Button}
+            sx={{ marginX: 2, marginBottom: 1 }}
+            disabled={pyodide == null || spineVector == null}
+            onClick={() => {
+              // TODO: Implement saving to CSV.
+            }}
+          >
+            Save data
           </Button>
         </Paper>
       </>
@@ -539,10 +588,11 @@ function App() {
           )}
         </h3>
       </div>
-      <div id="image-canvas">
+      <div id="image-canvas" style={{ cursor: cursorStyle }}>
         <canvas ref={canvasRef} onClick={handleCanvasClick} />
       </div>
       <div id="editor">
+        {isDeleteMode && "Select point to delete"}
         <VectorText />
         <VectorTable />
         <Grid container spacing={2} id="data-form">
