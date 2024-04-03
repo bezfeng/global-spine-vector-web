@@ -28,8 +28,7 @@ import {
 import Grid from "@mui/material/Unstable_Grid2";
 
 import "./App.css";
-import { calcSpineVector } from "./SpineHelper";
-import { loadPyodide } from "pyodide";
+import { calcSpineVector, makePyodide } from "./SpineHelper";
 
 var MODE_SPLINE = "spline";
 var MODE_SPINE_VEC = "spine_vec";
@@ -69,42 +68,15 @@ function App() {
 
   // Python Init --------------------------------------------------------------
 
+  let isLoadingPyodide = false;
+
   useEffect(() => {
-    async function makePyodide() {
-      let newPyodide = await loadPyodide({
-        indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/",
+    if (pyodide == null && !isLoadingPyodide) {
+      isLoadingPyodide = true;
+      makePyodide().then((newPyodide) => {
+        setPyodide(newPyodide);
+        isLoadingPyodide = false;
       });
-      await newPyodide.loadPackage(["numpy", "scipy"]);
-
-      // Set up our imports and helper functions.
-      await newPyodide.runPythonAsync(`
-        import numpy as np
-        import scipy
-        from scipy.interpolate import CubicSpline
-
-        def calculate_angles(spline, x_values):
-          dx = spline.derivative(1)(x_values)  # First derivative
-          dy = np.ones_like(dx)
-          tangent_vectors = np.stack((dx, dy), axis=-1)
-          normalized_tangent_vectors = tangent_vectors / np.linalg.norm(tangent_vectors, axis=-1, keepdims=True)
-          angles = np.arctan2(normalized_tangent_vectors[:, 0], normalized_tangent_vectors[:, 1])
-          return np.degrees(angles)
-        
-        def calculate_vector(weight, level, angle):
-          print('Calculating vector for {}, {}, {}'.format(weight, level, angle))
-          return np.abs(scipy.constants.g * weight * np.sin(np.radians(angle)) * level/58)
-        def calculate_vector_normal(weight, level, angle):
-          return np.abs(scipy.constants.g * weight * np.cos(np.radians(angle)) * level/58)
-
-        def calculate_vector_S_non_abs(weight, level, angle):
-          return scipy.constants.g * weight * np.sin(np.radians(angle)) * level/58
-        def calculate_vector_O_non_abs(weight, level, angle):
-          return scipy.constants.g * weight * np.cos(np.radians(angle)) * level/58
-      `);
-      setPyodide(newPyodide);
-    }
-    if (pyodide == null) {
-      makePyodide();
     }
   }, []);
 
@@ -527,9 +499,6 @@ function App() {
 
   function VectorTable() {
     if (spineVector && shouldShowTable) {
-      spineVector.storedData.map((row) => {
-        console.log(row);
-      });
       return (
         <>
           <TableContainer component={Paper}>

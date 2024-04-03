@@ -1,3 +1,5 @@
+import { loadPyodide } from "pyodide";
+
 export const levelProportion = {
   C1: 1,
   C2: 1,
@@ -47,6 +49,42 @@ export const validLevels = new Set(
   [cervicalLevels, thoracicLevels, lumbarLevels].flat()
 );
 
+export async function makePyodide() {
+  console.log("Loading Pyodide...");
+
+  let newPyodide = await loadPyodide({
+    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/",
+  });
+  await newPyodide.loadPackage(["numpy", "scipy"]);
+
+  // Set up our imports and helper functions.
+  await newPyodide.runPythonAsync(`
+    import numpy as np
+    import scipy
+    from scipy.interpolate import CubicSpline
+
+    def calculate_angles(spline, x_values):
+      dx = spline.derivative(1)(x_values)  # First derivative
+      dy = np.ones_like(dx)
+      tangent_vectors = np.stack((dx, dy), axis=-1)
+      normalized_tangent_vectors = tangent_vectors / np.linalg.norm(tangent_vectors, axis=-1, keepdims=True)
+      angles = np.arctan2(normalized_tangent_vectors[:, 0], normalized_tangent_vectors[:, 1])
+      return np.degrees(angles)
+    
+    def calculate_vector(weight, level, angle):
+      print('Calculating vector for {}, {}, {}'.format(weight, level, angle))
+      return np.abs(scipy.constants.g * weight * np.sin(np.radians(angle)) * level/58)
+    def calculate_vector_normal(weight, level, angle):
+      return np.abs(scipy.constants.g * weight * np.cos(np.radians(angle)) * level/58)
+
+    def calculate_vector_S_non_abs(weight, level, angle):
+      return scipy.constants.g * weight * np.sin(np.radians(angle)) * level/58
+    def calculate_vector_O_non_abs(weight, level, angle):
+      return scipy.constants.g * weight * np.cos(np.radians(angle)) * level/58
+  `);
+  return newPyodide;
+}
+
 export const calcCumLevel = () => {
   let cumulativeLevelProportion = {};
   let cumulativeSingleLevelProportion = {};
@@ -64,8 +102,6 @@ export const calcCumLevel = () => {
   cervicalList.forEach((l) => {
     sumCervicalRegionalContribution += levelProportion[l];
   });
-
-  console.log(sumCervicalRegionalContribution);
 
   cervicalList.forEach((l) => {
     cumulativeLevelProportion[l] =
@@ -113,6 +149,10 @@ export const calcCumLevel = () => {
 };
 
 export function calcSpineVector(pyodide, coordinates, weightString) {
+  if (coordinates.length == 0) {
+    return null;
+  }
+
   let sortedCoords = [...coordinates];
   sortedCoords.sort((a, b) => {
     return a.y < b.y ? -1 : 1;
