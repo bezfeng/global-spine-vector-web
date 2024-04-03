@@ -373,6 +373,7 @@ function App() {
     const config = mkConfig({
       showColumnHeaders: true,
       columnHeaders: columnHeaders,
+      filename: "spine_vec",
     });
     // Convert the data objects into the appropriate format as required by export-to-csv.
     let dataDict = spineVector.storedData.map((row) => {
@@ -399,6 +400,7 @@ function App() {
     const config = mkConfig({
       showColumnHeaders: true,
       columnHeaders: columnHeaders,
+      filename: "coordinates",
     });
     // Convert the data objects into the appropriate format as required by export-to-csv.
     let dataDict = coordinates.map((c) => {
