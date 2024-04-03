@@ -28,17 +28,14 @@ import {
 import Grid from "@mui/material/Unstable_Grid2";
 
 import "./App.css";
-import {
-  calcCumLevel,
-  cervicalLevels,
-  lumbarLevels,
-  thoracicLevels,
-  validLevels,
-} from "./SpineHelper";
+import { calcSpineVector } from "./SpineHelper";
 import { loadPyodide } from "pyodide";
 
 var MODE_SPLINE = "spline";
 var MODE_SPINE_VEC = "spine_vec";
+
+// Default weight is 60 kg.
+var DEFAULT_WEIGHT_STRING = "60";
 
 function App() {
   // State to track pyodide construction so that we don't use it before it's ready.
@@ -58,7 +55,7 @@ function App() {
   const dialogTextRef = useRef(null);
 
   // State for the weight input text field.
-  const weightTextRef = useRef(null);
+  const [weightText, setWeightText] = useState(DEFAULT_WEIGHT_STRING);
 
   const [shouldDrawSpline, setShouldDrawSpline] = useState(false);
   const [shouldDrawSpineVec, setShouldDrawSpineVec] = useState(false);
@@ -108,195 +105,8 @@ function App() {
   }, []);
 
   const spineVector = useMemo(() => {
-    let sortedCoords = [...coordinates];
-    sortedCoords.sort((a, b) => {
-      return a.y < b.y ? -1 : 1;
-    });
-    globalThis.xVals = sortedCoords.map((c) => c.x);
-    globalThis.yVals = sortedCoords.map((c) => c.y);
-
-    // Default to a weight of 60 kg.
-    let weight = 60.0;
-    if (weightTextRef.current) {
-      weight = Number.parseFloat(weightTextRef.current.value);
-    }
-
-    console.log("Performing calculations with weight of " + weight);
-
-    let levelParams = calcCumLevel();
-
-    // In order to bridge JS objects into Pyodide, we have to assign them
-    // to the global scope.
-    globalThis.w = weight;
-    globalThis.level = sortedCoords.map((c) => c.label);
-
-    globalThis.cumulativeLevelProportion =
-      levelParams.cumulativeLevelProportion;
-    globalThis.cumulativeSingleLevelProportion =
-      levelParams.cumulativeSingleLevelProportion;
-    globalThis.cervicalLevels = cervicalLevels;
-    globalThis.thoracicLevels = thoracicLevels;
-    globalThis.lumbarLevels = lumbarLevels;
-
-    // Make sure the labels are spinal levels (not arbitrary text) and that we have at least two
-    // cervical, thoracic, and lumbar points. Otherwise, the vector calculations will fail.
-    let numCervicalLabels = 0;
-    let numThoracicLevels = 0;
-    let numLumbarLevels = 0;
-    for (let i = 0; i < sortedCoords.length; i++) {
-      let label = sortedCoords[i].label;
-      if (cervicalLevels.includes(label)) {
-        numCervicalLabels += 1;
-      } else if (thoracicLevels.includes(label)) {
-        numThoracicLevels += 1;
-      } else if (lumbarLevels.includes(label)) {
-        numLumbarLevels += 1;
-      }
-    }
-    if (numCervicalLabels < 2 || numThoracicLevels < 2 || numLumbarLevels < 2) {
-      return null;
-    }
-
-    pyodide.runPython(`
-      import js
-
-      # Load in instance variables bridged from JS
-      w = js.w
-      level = js.level.to_py()
-
-      # Set up constants (also bridged from JS)
-      cumulative_level_proportion = js.cumulativeLevelProportion.to_py()
-      cumulative_single_level_proportion = js.cumulativeSingleLevelProportion.to_py()
-      cervical_levels = js.cervicalLevels.to_py()
-      thoracic_levels = js.thoracicLevels.to_py()
-      lumbar_levels = js.lumbarLevels.to_py()
-    
-      y = np.asarray(js.yVals.to_py())
-      x = np.asarray(js.xVals.to_py())
-      cs = CubicSpline(y, x, bc_type='natural')   
-
-      angles = calculate_angles(cs, y)
-      
-      vec_mag = [calculate_vector(w, cumulative_single_level_proportion[l], a) for a, l in zip(angles, level)]
-      vec_mag_normal = [calculate_vector_normal(w, cumulative_single_level_proportion[l], a) for a, l in
-                  zip(angles, level)]
-
-      vec_mag_S_non_abs = [calculate_vector_S_non_abs(w, cumulative_level_proportion[l], a) for a, l in zip(angles, level)]
-      vec_mag_O_non_abs = [calculate_vector_O_non_abs(w, cumulative_level_proportion[l], a) for a, l in zip(angles, level)]
-
-      # Determine x and y vectors for each labeled spinal level
-      x_e = [m * np.cos(np.radians(ang)) if np.radians(ang) < 0 else -1 * m * np.cos(np.radians(ang)) for _, m, ang in zip(x, vec_mag, angles)]
-      y_e = [-1 * m * np.sin(np.radians(ang)) if np.radians(ang) < 0 else m * np.sin(np.radians(ang)) for _, m, ang in zip(y, vec_mag, angles)]
-
-      x_e_n = [m * np.sin(np.radians(ang)) if np.radians(ang) < 0 else m * np.sin(np.radians(ang)) for _, m, ang in zip(x, vec_mag_normal, angles)]
-      y_e_n = [m * np.cos(np.radians(ang)) if np.radians(ang) < 0 else m * np.cos(np.radians(ang)) for _, m, ang in zip(y, vec_mag_normal, angles)]
-
-      # Helper function to create the final vectors for all our spinal cord levels.
-      def make_vectors(x, y, x_e, y_e):
-        return [
-          {'start': (x_0, y_0), 'vector': (x_t, y_t), 'label': l} for x_0, y_0, x_t, y_t, l in zip(x, y, x_e, y_e, level)
-        ]
-      
-      vectors_with_starting_coordinates = make_vectors(x, y, x_e, y_e) 
-      vectors_with_starting_coordinates_Normal = make_vectors(x, y, x_e_n, y_e_n)
-
-      #=======================================
-      
-      # Group the above vectors based on the spinal level
-
-      vectors_with_starting_coordinates_cervical = filter(lambda v: v['label'] in cervical_levels, vectors_with_starting_coordinates)
-      vectors_with_starting_coordinates_Normal_cervical = filter(lambda v: v['label'] in cervical_levels, vectors_with_starting_coordinates_Normal)
-
-      vectors_with_starting_coordinates_thoracic = filter(lambda v: v['label'] in thoracic_levels, vectors_with_starting_coordinates)
-      vectors_with_starting_coordinates_Normal_thoracic = filter(lambda v: v['label'] in thoracic_levels, vectors_with_starting_coordinates_Normal)
-      
-      vectors_with_starting_coordinates_lumbar = filter(lambda v: v['label'] in lumbar_levels, vectors_with_starting_coordinates)
-      vectors_with_starting_coordinates_Normal_lumbar = filter(lambda v: v['label'] in lumbar_levels, vectors_with_starting_coordinates_Normal)
-
-      # Sum up all the vectors within a group to determine the overall vector for that group.
-
-      resultant_vector_cervical = np.sum([np.array(vec['vector']) for vec in vectors_with_starting_coordinates_cervical], axis=0)
-      resultant_vector_normal_cervical = np.sum([np.array(vec['vector']) for vec in vectors_with_starting_coordinates_Normal_cervical],
-                                        axis=0)
-      resultant_vector_thoracic = np.sum([np.array(vec['vector']) for vec in vectors_with_starting_coordinates_thoracic], axis=0)
-      resultant_vector_normal_thoracic = np.sum([np.array(vec['vector']) for vec in vectors_with_starting_coordinates_Normal_thoracic],
-                                        axis=0)
-      resultant_vector_lumbar = np.sum([np.array(vec['vector']) for vec in vectors_with_starting_coordinates_lumbar], axis=0)
-      resultant_vector_normal_lumbar = np.sum([np.array(vec['vector']) for vec in vectors_with_starting_coordinates_Normal_lumbar],
-                                        axis=0)
-
-      # Determine the magnitude/norm of the resultant vectors.
-
-      sum_mag_cervical = round(np.linalg.norm(resultant_vector_cervical), 0)
-      sum_mag_normal_cervical = round(np.linalg.norm(resultant_vector_normal_cervical), 0)
-
-      sum_mag_thoracic = round(np.linalg.norm(resultant_vector_thoracic), 0)
-      sum_mag_normal_thoracic = round(np.linalg.norm(resultant_vector_normal_thoracic), 0)
-
-      sum_mag_lumbar = round(np.linalg.norm(resultant_vector_lumbar), 0)
-      sum_mag_normal_lumbar = round(np.linalg.norm(resultant_vector_normal_lumbar), 0)      
-      
-      # Calculate the angle in radians
-      angle_radians_cervical = np.arctan2(resultant_vector_cervical[1], resultant_vector_cervical[0])
-      # Convert to degrees
-      angle_degrees_cervical = round(np.degrees(angle_radians_cervical), 0)
-
-      # Calculate the angle in radians
-      angle_radians_thoracic = np.arctan2(resultant_vector_thoracic[1], resultant_vector_thoracic[0])
-      # Convert to degrees
-      angle_degrees_thoracic = round(np.degrees(angle_radians_thoracic), 0)
-
-      # Calculate the angle in radians
-      angle_radians_lumbar = np.arctan2(resultant_vector_lumbar[1], resultant_vector_lumbar[0])
-      # Convert to degrees
-      angle_degrees_lumbar = round(np.degrees(angle_radians_lumbar), 0)
-
-      #=======================================
-
-      # Extracting only the vector components and adding them
-
-      resultant_vector = np.sum([np.array(vec['vector']) for vec in vectors_with_starting_coordinates], axis=0)
-      resultant_vector_normal = np.sum([np.array(vec['vector']) for vec in vectors_with_starting_coordinates_Normal], axis=0)
-
-      # Calculate the angle in radians
-      angle_radians = np.arctan2(resultant_vector[1], resultant_vector[0])
-
-      # Convert to degrees
-      angle_degrees = round(np.degrees(angle_radians), 0)
-
-      # Calculating magnitude
-      sum_mag = round(np.linalg.norm(resultant_vector), 0)
-      sum_mag_normal = round(np.linalg.norm(resultant_vector_normal), 0)
-
-      vec_ratio = np.tan(np.radians(angles))
-
-      # Store all the calculated data into an array that we will then bridge back to JS.
-      stored_data = [[round(float(ang),1), round(float(mag_s),1), round(float(mag_O),1), round(float(ratio), 1), level] for ang, mag_s, mag_O, ratio, level in zip(angles, vec_mag_S_non_abs, vec_mag_O_non_abs, vec_ratio, level)]
-      stored_data.append([180 - angle_degrees_cervical, sum_mag_cervical, sum_mag_normal_cervical, round(np.tan(angle_radians_cervical),1), 'RSV-C'])
-      stored_data.append([180 - angle_degrees_thoracic, sum_mag_thoracic, sum_mag_normal_thoracic, round(np.tan(angle_radians_thoracic), 1), 'RSV-T'])
-      stored_data.append([180 - angle_degrees_lumbar, sum_mag_lumbar, sum_mag_normal_lumbar, round(np.tan(angle_radians_lumbar), 1), 'RSV-L'])
-      stored_data.append([180 - angle_degrees, sum_mag, sum_mag_normal, round(np.tan(angle_radians), 1), 'GSV'])
-    `);
-
-    let storedData = pyodide.globals
-      .get("stored_data")
-      .toJs({ create_proxies: false });
-    console.log(storedData);
-
-    let resultantVector = pyodide.globals
-      .get("resultant_vector")
-      .toJs({ create_proxies: false });
-
-    let angleDegrees = pyodide.globals.get("angle_degrees");
-    let sumMag = pyodide.globals.get("sum_mag");
-
-    return {
-      storedData: storedData,
-      angleDegrees: angleDegrees,
-      sumMag: sumMag,
-      resultantVector: resultantVector,
-    };
-  }, [coordinates]);
+    return calcSpineVector(pyodide, coordinates, weightText);
+  }, [coordinates, weightText]);
 
   // Drawing Methods ----------------------------------------------------------
 
@@ -605,6 +415,7 @@ function App() {
           </Button>
           <Button
             component="span"
+            color="error"
             className={ClassNames.Button}
             sx={{ marginX: 2, marginBottom: 1 }}
             onClick={resetPoints}
@@ -617,51 +428,50 @@ function App() {
   }
 
   function VectorButtons() {
-    if (pyodide) {
-      return (
-        <>
-          <Paper display="flex" elevation={3} sx={{ p: 2 }}>
-            <Button
-              variant="outlined"
-              component="span"
-              className={ClassNames.Button}
-              sx={{ marginX: 2, marginBottom: 1 }}
-              onClick={() => {
-                setShouldDrawSpineVec(false);
-                setShouldDrawSpline(!shouldDrawSpline);
-              }}
-            >
-              {shouldDrawSpline ? "Hide spline" : "Draw spline"}
-            </Button>
-            <Button
-              variant="outlined"
-              component="span"
-              className={ClassNames.Button}
-              sx={{ marginX: 2, marginBottom: 1 }}
-              onClick={() => {
-                setShouldDrawSpline(false);
-                setShouldDrawSpineVec(!shouldDrawSpineVec);
-              }}
-            >
-              {shouldDrawSpineVec ? "Hide spine vector" : "Spine vector"}
-            </Button>
-            <Button
-              variant="outlined"
-              component="span"
-              className={ClassNames.Button}
-              sx={{ marginX: 2, marginBottom: 1 }}
-              onClick={() => {
-                setShouldShowTable(!shouldShowTable);
-              }}
-            >
-              {shouldShowTable ? "Hide table" : "Show table"}
-            </Button>
-          </Paper>
-        </>
-      );
-    } else {
-      return null;
-    }
+    return (
+      <>
+        <Paper display="flex" elevation={3} sx={{ p: 2 }}>
+          <Button
+            variant="outlined"
+            component="span"
+            className={ClassNames.Button}
+            sx={{ marginX: 2, marginBottom: 1 }}
+            disabled={pyodide == null}
+            onClick={() => {
+              setShouldDrawSpineVec(false);
+              setShouldDrawSpline(!shouldDrawSpline);
+            }}
+          >
+            {shouldDrawSpline ? "Hide spline" : "Draw spline"}
+          </Button>
+          <Button
+            variant="outlined"
+            component="span"
+            className={ClassNames.Button}
+            sx={{ marginX: 2, marginBottom: 1 }}
+            disabled={pyodide == null}
+            onClick={() => {
+              setShouldDrawSpline(false);
+              setShouldDrawSpineVec(!shouldDrawSpineVec);
+            }}
+          >
+            {shouldDrawSpineVec ? "Hide spine vector" : "Spine vector"}
+          </Button>
+          <Button
+            variant="outlined"
+            component="span"
+            className={ClassNames.Button}
+            sx={{ marginX: 2, marginBottom: 1 }}
+            disabled={pyodide == null || spineVector == null}
+            onClick={() => {
+              setShouldShowTable(!shouldShowTable);
+            }}
+          >
+            {shouldShowTable ? "Hide table" : "Show table"}
+          </Button>
+        </Paper>
+      </>
+    );
   }
 
   function VectorTable() {
@@ -749,9 +559,11 @@ function App() {
             <TextField
               label="Weight"
               variant="filled"
-              defaultValue="60"
+              defaultValue={DEFAULT_WEIGHT_STRING}
               id="pt-weight"
-              inputRef={weightTextRef}
+              onChange={(event) => {
+                setWeightText(event.target.value);
+              }}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">kg</InputAdornment>
