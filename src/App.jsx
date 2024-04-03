@@ -26,6 +26,7 @@ import {
   TextField,
 } from "@mui/material";
 import Grid from "@mui/material/Unstable_Grid2";
+import { mkConfig, generateCsv, download } from "export-to-csv";
 
 import "./App.css";
 import { calcSpineVector, makePyodide } from "./SpineHelper";
@@ -356,6 +357,56 @@ function App() {
     setIsDeleteMode(shouldDelete);
   };
 
+  // Data ----------------------------------------------------------
+
+  const saveData = () => {
+    if (!spineVector) {
+      return;
+    }
+    let columnHeaders = [
+      "Slope Angle",
+      "Shear Vector Magnitude",
+      "Normal Vector Magnitude",
+      "Vector Ratio",
+      "Level",
+    ];
+    const config = mkConfig({
+      showColumnHeaders: true,
+      columnHeaders: columnHeaders,
+    });
+    // Convert the data objects into the appropriate format as required by export-to-csv.
+    let dataDict = spineVector.storedData.map((row) => {
+      return {
+        [columnHeaders[0]]: row[0],
+        [columnHeaders[1]]: row[1],
+        [columnHeaders[2]]: row[2],
+        [columnHeaders[3]]: row[3],
+        [columnHeaders[4]]: row[4],
+      };
+    });
+    const csv = generateCsv(config)(dataDict);
+    download(config)(csv);
+    saveCoords();
+  };
+
+  const saveCoords = () => {
+    let columnHeaders = ["Level", "X", "Y"];
+    const config = mkConfig({
+      showColumnHeaders: true,
+      columnHeaders: columnHeaders,
+    });
+    // Convert the data objects into the appropriate format as required by export-to-csv.
+    let dataDict = coordinates.map((c) => {
+      return {
+        [columnHeaders[0]]: c.label,
+        [columnHeaders[1]]: c.x,
+        [columnHeaders[2]]: c.y,
+      };
+    });
+    const csv = generateCsv(config)(dataDict);
+    download(config)(csv);
+  };
+
   // UI ------------------------------------------------------------
 
   function VectorText() {
@@ -486,9 +537,7 @@ function App() {
             className={ClassNames.Button}
             sx={{ marginX: 2, marginBottom: 1 }}
             disabled={pyodide == null || spineVector == null}
-            onClick={() => {
-              // TODO: Implement saving to CSV.
-            }}
+            onClick={saveData}
           >
             Save data
           </Button>
