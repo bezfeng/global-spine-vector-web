@@ -153,12 +153,10 @@ export function calcSpineVector(pyodide, coordinates, weightString) {
     return null;
   }
 
-  console.log(coordinates);
   let sortedCoords = [...coordinates];
   sortedCoords.sort((a, b) => {
     return a.y < b.y ? -1 : 1;
   });
-  console.log(sortedCoords);
   globalThis.xVals = sortedCoords.map((c) => c.x);
   globalThis.yVals = sortedCoords.map((c) => c.y);
 
