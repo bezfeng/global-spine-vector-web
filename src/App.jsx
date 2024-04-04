@@ -108,6 +108,7 @@ function App() {
           var imgHeight = ctx.canvas.height;
           var imgWidth = imgHeight * ratio;
         }
+        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(image, 0, 0, imgWidth, imgHeight);
 
         // Make sure to draw the circles on top of the image.
@@ -607,10 +608,10 @@ function App() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>vecAng</TableCell>
-                  <TableCell>vecMagShear</TableCell>
-                  <TableCell>vecMagOrth</TableCell>
-                  <TableCell>vecRatio</TableCell>
+                  <TableCell>Vector Angle</TableCell>
+                  <TableCell>Shear Vector Magnitude</TableCell>
+                  <TableCell>Normal Vector Magnitude</TableCell>
+                  <TableCell>Vector Ratio</TableCell>
                   <TableCell>Level</TableCell>
                 </TableRow>
               </TableHead>
