@@ -26,6 +26,7 @@ import {
   TextField,
 } from "@mui/material";
 import Grid from "@mui/material/Unstable_Grid2";
+import Papa from "papaparse";
 import { mkConfig, generateCsv, download } from "export-to-csv";
 
 import "./App.css";
@@ -129,9 +130,9 @@ function App() {
       ctx.strokeStyle = "#000000";
       ctx.stroke();
 
-      ctx.font = "16px Arial";
+      ctx.font = "12px Arial";
       ctx.fillStyle = "black";
-      ctx.fillText(coordinate.label, coordinate.x - 6, coordinate.y - 16);
+      ctx.fillText(coordinate.label, coordinate.x - 25, coordinate.y);
     });
 
     // Do not draw both the spline and spine vector.
@@ -202,7 +203,7 @@ function App() {
 
     for (let i = 0; i < sortedCoords.length; i++) {
       let coordinate = sortedCoords[i];
-      ctx.font = "16px Arial";
+      ctx.font = "14px Arial";
       ctx.fillStyle = "black";
       // Assume that the number of calculated angles is equal to the number of added points.
       ctx.fillText(
@@ -482,6 +483,51 @@ function App() {
           >
             Delete point
           </Button>
+          <input
+            type="file"
+            name="selected_coords"
+            accept=".csv"
+            id="button-load"
+            hidden
+            onChange={(event) => {
+              if (event.target.files.length > 0) {
+                let config = {
+                  header: true,
+                  skipEmptyLines: true,
+                  complete: (results, file) => {
+                    if (results.errors.length != 0) {
+                      console.log(results.errors);
+                      alert(
+                        "Unable to parse saved coordinates! Please make sure " +
+                          "you are using a saved CSV from this app."
+                      );
+                      return;
+                    }
+                    let savedCoords = results.data.map((c) => {
+                      return {
+                        x: Number.parseFloat(c.X),
+                        y: Number.parseFloat(c.Y),
+                        label: c.Level,
+                      };
+                    });
+                    setCoordinates(savedCoords);
+                  },
+                };
+                Papa.parse(event.target.files[0], config);
+              }
+            }}
+          />
+          <label htmlFor="button-load">
+            <Button
+              variant="outlined"
+              component="span"
+              className={ClassNames.Button}
+              sx={{ marginX: 2, marginBottom: 1 }}
+              disabled={pyodide == null}
+            >
+              Load points
+            </Button>
+          </label>
           <Button
             component="span"
             color="error"
@@ -608,17 +654,17 @@ function App() {
     <>
       <div>
         <h2>Global Spine Vector Web</h2>
-        <h3>
-          {!pyodide && "Pyodide is loading"}
-          {!pyodide && (
-            <CircularProgress disableShrink size={24} sx={{ marginLeft: 4 }} />
-          )}
-        </h3>
       </div>
       <div id="image-canvas" style={{ cursor: cursorStyle }}>
         <canvas ref={canvasRef} onClick={handleCanvasClick} />
       </div>
       <div id="editor">
+        <div>
+          {!pyodide && "Pyodide is loading..."}
+          {!pyodide && (
+            <CircularProgress disableShrink size={24} sx={{ marginLeft: 4 }} />
+          )}
+        </div>
         {isDeleteMode && "Select point to delete"}
         <VectorText />
         <VectorTable />

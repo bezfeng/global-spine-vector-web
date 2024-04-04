@@ -142,7 +142,7 @@ export const calcCumLevel = () => {
 
   return {
     cumulativeLevelProportion: cumulativeLevelProportion,
-    cumulativeSingleLevelProportion: cumulativeLevelProportion,
+    cumulativeSingleLevelProportion: cumulativeSingleLevelProportion,
     cervicalList: cervicalList,
     thoracicLumbarList: thoracicLumbarList,
   };
@@ -153,10 +153,12 @@ export function calcSpineVector(pyodide, coordinates, weightString) {
     return null;
   }
 
+  console.log(coordinates);
   let sortedCoords = [...coordinates];
   sortedCoords.sort((a, b) => {
     return a.y < b.y ? -1 : 1;
   });
+  console.log(sortedCoords);
   globalThis.xVals = sortedCoords.map((c) => c.x);
   globalThis.yVals = sortedCoords.map((c) => c.y);
 
@@ -250,17 +252,17 @@ export function calcSpineVector(pyodide, coordinates, weightString) {
     
     # Group the above vectors based on the spinal level
 
-    vectors_with_starting_coordinates_cervical = filter(lambda v: v['label'] in cervical_levels, vectors_with_starting_coordinates)
-    vectors_with_starting_coordinates_Normal_cervical = filter(lambda v: v['label'] in cervical_levels, vectors_with_starting_coordinates_Normal)
+    vectors_with_starting_coordinates_cervical = [v for v in vectors_with_starting_coordinates if v['label'] in cervical_levels]
+    vectors_with_starting_coordinates_Normal_cervical = [v for v in vectors_with_starting_coordinates_Normal if v['label'] in cervical_levels]
 
-    vectors_with_starting_coordinates_thoracic = filter(lambda v: v['label'] in thoracic_levels, vectors_with_starting_coordinates)
-    vectors_with_starting_coordinates_Normal_thoracic = filter(lambda v: v['label'] in thoracic_levels, vectors_with_starting_coordinates_Normal)
+    vectors_with_starting_coordinates_thoracic = [v for v in vectors_with_starting_coordinates if v['label'] in thoracic_levels]
+    vectors_with_starting_coordinates_Normal_thoracic = [v for v in vectors_with_starting_coordinates_Normal if v['label'] in thoracic_levels]
     
-    vectors_with_starting_coordinates_lumbar = filter(lambda v: v['label'] in lumbar_levels, vectors_with_starting_coordinates)
-    vectors_with_starting_coordinates_Normal_lumbar = filter(lambda v: v['label'] in lumbar_levels, vectors_with_starting_coordinates_Normal)
+    vectors_with_starting_coordinates_lumbar = [v for v in vectors_with_starting_coordinates if v['label'] in lumbar_levels]
+    vectors_with_starting_coordinates_Normal_lumbar = [v for v in vectors_with_starting_coordinates_Normal if v['label'] in lumbar_levels]
 
     # Sum up all the vectors within a group to determine the overall vector for that group.
-
+        
     resultant_vector_cervical = np.sum([np.array(vec['vector']) for vec in vectors_with_starting_coordinates_cervical], axis=0)
     resultant_vector_normal_cervical = np.sum([np.array(vec['vector']) for vec in vectors_with_starting_coordinates_Normal_cervical],
                                       axis=0)
