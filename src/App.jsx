@@ -699,7 +699,9 @@ function App() {
       <Dialog open={dialogOpen} onClose={handleClose}>
         <DialogTitle>Add Point</DialogTitle>
         <DialogContent>
-          <DialogContentText>Enter the point tag text name:</DialogContentText>
+          <DialogContentText>
+            Enter the spinal level name (e.g. C2):
+          </DialogContentText>
           <TextField
             autoFocus
             required
