@@ -14,9 +14,13 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  FormControl,
   IconButton,
   InputAdornment,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -30,7 +34,7 @@ import Papa from "papaparse";
 import { mkConfig, generateCsv, download } from "export-to-csv";
 
 import "./App.css";
-import { calcSpineVector, makePyodide } from "./SpineHelper";
+import { calcSpineVector, makePyodide, validLevels } from "./SpineHelper";
 
 var MODE_SPLINE = "spline";
 var MODE_SPINE_VEC = "spine_vec";
@@ -52,8 +56,8 @@ function App() {
   const [newCoord, setNewCoord] = useState(null);
 
   // State for the dialog box that prompts users to label their new point.
+  const [spinalLevelSelection, setSpinalLevelSelection] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const dialogTextRef = useRef(null);
 
   // State for the weight input text field.
   const [weightText, setWeightText] = useState(DEFAULT_WEIGHT_STRING);
@@ -337,7 +341,7 @@ function App() {
   };
 
   const handlePointSubmit = () => {
-    let newLabel = dialogTextRef.current.value;
+    let newLabel = spinalLevelSelection;
     if (!newLabel) {
       newLabel = "";
     }
@@ -404,8 +408,12 @@ function App() {
       columnHeaders: columnHeaders,
       filename: "coordinates",
     });
+    let sortedCoords = [...coordinates];
+    sortedCoords.sort((a, b) => {
+      return a.y < b.y ? -1 : 1;
+    });
     // Convert the data objects into the appropriate format as required by export-to-csv.
-    let dataDict = coordinates.map((c) => {
+    let dataDict = sortedCoords.map((c) => {
       return {
         [columnHeaders[0]]: c.label,
         [columnHeaders[1]]: c.x,
@@ -700,19 +708,23 @@ function App() {
       <Dialog open={dialogOpen} onClose={handleClose}>
         <DialogTitle>Add Point</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Enter the spinal level name (e.g. C2):
-          </DialogContentText>
-          <TextField
-            autoFocus
-            required
-            margin="dense"
-            id="point_tag"
-            label="Point tag"
-            fullWidth
-            variant="standard"
-            inputRef={dialogTextRef}
-          />
+          <DialogContentText>Select the spinal level:</DialogContentText>
+          <FormControl fullWidth sx={{ marginTop: 2 }}>
+            <InputLabel id="select-label">Spinal Level</InputLabel>
+            <Select
+              value={spinalLevelSelection}
+              label="Spinal Level"
+              onChange={(event) => {
+                setSpinalLevelSelection(event.target.value);
+              }}
+            >
+              {[...validLevels].map((level) => (
+                <MenuItem key={level} value={level}>
+                  {level}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
