@@ -674,6 +674,10 @@ function App() {
             <CircularProgress disableShrink size={24} sx={{ marginLeft: 4 }} />
           )}
         </div>
+        <div>
+          {!pyodide &&
+            "If this is your first time using the web app, ~40 MB of data will be downloaded. This may take a while on slow connections."}
+        </div>
         {isDeleteMode && "Select point to delete"}
         <VectorText />
         <VectorTable />
